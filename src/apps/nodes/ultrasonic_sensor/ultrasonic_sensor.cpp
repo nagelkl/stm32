@@ -1,3 +1,4 @@
+#include "device_config.h"
 #include "ultrasonic_sensor.h"
 #include "rcl.h"
 #include "Node.h"
@@ -23,7 +24,7 @@ void ultrasonicLoop()
     // Get distance value acquired by ultrasonic sensor in meters.
     float distance_m = HCSR04::pingMedian(5)/100.0f;
 
-    if (distance_m > -1)
+    if (distance_m > NO_ECHO)
     {
         msg.range = distance_m;
         ultrasonic_pub->publish(msg);
@@ -34,7 +35,7 @@ void ultrasonicLoop()
 void ultrasonic_sensor(void* params)
 {
     // Register node in the ROS system and create a publisher with ultrasound topic.
-    ros::Node* n = new ros::Node("ultrasonic_sensor");
+    ros::Node* n = new ros::Node("ultrasonic_sensor_"ROS_NODE_UNIQUE_ID);
     ultrasonic_pub = new ros::Publisher;
     ultrasonic_pub->advertise<Range>(n, "ultrasound");
 

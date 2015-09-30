@@ -2,6 +2,7 @@
 #include "rcl.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include "device_config.h"
 
 // application memory
 char memory[20 * 1024];
@@ -47,8 +48,6 @@ void TerminalTask( void *pvParameters )
 #include "netconf.h"
 #include "tcpip.h"
 
-#define LOG_LOCAL_PORT 32005
-#define LOG_REMOTE_PORT 32006
 
 void TerminalTask(void* params)
 {
@@ -58,20 +57,24 @@ void TerminalTask(void* params)
 	struct netconn* conn = netconn_new( NETCONN_UDP );
     netconn_bind(conn, IP_ADDR_ANY, LOG_LOCAL_PORT);
     struct ip_addr ip;
-    ip.addr = inet_addr("10.3.84.100");
+    ip.addr = inet_addr(LOG_REMOTE_IP);
     netconn_connect(conn, &ip, LOG_REMOTE_PORT);
 	for(;;)
 	{
 			// Try to receive message, block the task for at most TERMINAL_QUEUE_TIMEOUT ticks if queue is empty.
 			if (xQueueReceive(terminalQueue, &msg, TERMINAL_QUEUE_TIMEOUT))
-			//if (xQueueReceive(LogQueueHandle, &msg, 100))
 			{
 				// Methods for UDP send.
 				struct netbuf *buf = netbuf_new();
 			    char * data = netbuf_alloc(buf, sizeof(msg)); // Also deallocated with netbuf_delete(buf)
-			    memcpy (data, msg, sizeof (msg));
-			    netconn_send(conn, buf);
-			    netbuf_delete(buf); // Deallocate packet buffer
+                if (data != NULL)
+                {
+                    memcpy (data, msg, sizeof (msg));
+                    netconn_send(conn, buf);
+                    netbuf_delete(buf); // Deallocate packet buffer
+                }
+                else
+                    os_printf("Netbuf_alloc: Cannot allocate memory!\n");
 			}
 	}
 }

@@ -5,6 +5,7 @@
 #include "lwip/ip_addr.h"
 #include "tcpip.h"
 #include "api.h"
+#include "device_config.h"
 
 extern "C"
 {
@@ -13,10 +14,6 @@ extern "C"
 
 #include "XMLRequest.h"
 
-#define SENDER_IP_ADDR "10.3.84.99"
-
-#define SERVER_PORT_NUM 11311
-#define SERVER_IP_ADDRESS "10.3.84.100"
 
 #define TOPIC_COUNT 20
 #define MAX_TOPIC_LEN 48
@@ -75,7 +72,10 @@ private:
                               if ((buf = netconn_recv(conn)) != NULL) {
                                 do {
                                   netbuf_data(buf, (void**)&data, &len);
-                                  memcpy(self->rxBuffer+offset, data, len);
+                                  if (self->rxBuffer != NULL && data != NULL)
+                                    memcpy(self->rxBuffer+offset, data, len);
+                                  else
+                                    os_printf("HTTPClient::tcpTask self->rxBuffer or data is NULL!\n");
 
                                   offset +=len;
                                   os_printf("Netconn received %d bytes\n", len);
@@ -136,8 +136,13 @@ public:
     void sendData(const char* data, uint16_t port, void(*receiveCallback)(const void* obj, const char* data) = NULL, void* obj = NULL)
     {
         TCPData tcpData;
-        memcpy(tcpData.data, data, TCP_DATA_SIZE);
-        tcpData.serverIP = inet_addr("10.3.84.100");
+        if (data != NULL)
+        {
+            memcpy(tcpData.data, data, TCP_DATA_SIZE);
+        }
+        else
+            os_printf("HTTPClient::sendData data is NULL!\n");
+        tcpData.serverIP = inet_addr(ROS_MASTER_IP);
         tcpData.serverPort = port;
         tcpData.receiveCallback = receiveCallback;
         tcpData.obj = obj;
@@ -332,9 +337,15 @@ void XMLRPCServer::UDPSend(void* params)
                         msgHeader[7] = 0;
                         uint32_t msgLen = *((uint32_t*) msg.data)+4;
                         void* data = netbuf_alloc(buf, msgLen+sizeof(msgHeader)); // Also deallocated with netbuf_delete(buf)
-
-                        memcpy (data, msgHeader, sizeof (msgHeader));
-                        memcpy (data+sizeof (msgHeader), msg.data, msgLen);
+                        if (data != NULL)
+                        {
+                            memcpy (data, msgHeader, sizeof(msgHeader));
+                            memcpy (data+sizeof(msgHeader), msg.data, msgLen);
+                        }
+                        else
+                        {
+                            os_printf("XMLRPCServer::UDPSend data is NULL!\n");
+                        }
 
                         err = netconn_send(conn, buf);
                         //os_printf("2Port: %d LWIP Error:%d\n", endpoint.port, err);
@@ -476,7 +487,7 @@ void XMLRPCServer::XMLRPCServerReceiveCallback(const char* data, char* buffer)
                         if (connection!= NULL)
                         {
                             os_printf("Connection ID: %d\n", connection->getID());
-                            XMLRequest* response = new TopicResponse(SENDER_IP_ADDR, UDP_LOCAL_PORT, connection->getID());
+                            XMLRequest* response = new TopicResponse(THIS_REMOTE_IP, UDP_LOCAL_PORT, connection->getID());
                             strcpy(buffer, response->getData());
                         }
                     }
@@ -517,14 +528,14 @@ void XMLRPCServer::XMLRPCServerReceiveCallback(const char* data, char* buffer)
                         uint16_t port;
                         char ip[32];
                         extractURI(uri, ip, &port);
-                        if (strcmp(ip, SENDER_IP_ADDR))
+                        if (strcmp(ip, THIS_REMOTE_IP))
                         {
                             os_printf("Topic:%s URI: %s:::%s:::%d\n", topic, uri, ip, port);
                             TopicReader* tr = getTopicReader(topic);
                             if (tr != NULL)
                             {
                                 if (!strcmp(ip, "SI-Z0M81"))
-                                    strcpy(ip, "10.3.84.100");
+                                    strcpy(ip, ROS_MASTER_IP);
 
                                 tr->requestTopic(ip, port);
                             }
@@ -576,7 +587,7 @@ void XMLRPCServer::UDPreceive(void* params)
     err_t err;
 
     // Initialize memory (in stack) for message.
-    char message[60];
+    char message[60]; // TODO: Set its size according to UDPMessage.
     os_printf("Test!\n");
     conn = netconn_new(NETCONN_UDP);
     for(;;)
@@ -659,6 +670,8 @@ void XMLRPCServer::extractURI(const char* uri, char* ip, uint16_t* port)
             strcpy(portStr, pos+1);
             *port = atoi(portStr);
         }
+        else
+            os_printf("XMLRPCServer::extractURI pos or ip is NULL!\n");
     }
 }
 

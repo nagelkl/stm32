@@ -36,7 +36,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
 
-
+include_directories(${PROJECT_SRC})
 include_directories(${PROJECT_SRC}/rcl/)
 include_directories(${PROJECT_SRC}/os/main/include/)
 include_directories(${PROJECT_SRC}/os/main/)
@@ -71,13 +71,12 @@ set(BIN_FILE "FreeRTOS.bin")
 # get all *.cpp files recursively
 file(GLOB_RECURSE CXX_FILES ${PROJECT_SRC}/*.cpp)
 file(GLOB_RECURSE C_FILES ${PROJECT_SRC}/*.c)
-add_executable(${ELF_FILE} ${CXX_FILES} ${C_FILES})
-
+# Adding header files is not required for build, it is only required for some IDEs to include headers in project navigator.
+file(GLOB_RECURSE H_FILES ${PROJECT_SRC}/*.h)
+add_executable(${ELF_FILE} ${CXX_FILES} ${C_FILES} ${H_FILES})
 
 #add_custom_target(${HEX_FILE} DEPENDS ${ELF_FILE} COMMAND ${CMAKE_OBJCOPY} -Oihex ${ELF_FILE} ${HEX_FILE})
 #add_custom_target(${BIN_FILE} DEPENDS ${ELF_FILE} COMMAND ${CMAKE_OBJCOPY} -Obinary ${ELF_FILE} ${BIN_FILE})
-
-
 
 ADD_CUSTOM_COMMAND(TARGET ${ELF_FILE}
           POST_BUILD

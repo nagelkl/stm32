@@ -3,13 +3,14 @@
 
 #include <string.h>
 #include "XMLRequest.h"
+#include "device_config.h"
 
 extern "C"
 {
 #include "ros.h"
 }
 
-#define SERVER_IP_ADDRESS "10.3.84.100"
+
 
 TopicReader::TopicReader(const char* callerID, const char* topic, const char* md5sum, const char* msgType)
 {
@@ -19,10 +20,10 @@ TopicReader::TopicReader(const char* callerID, const char* topic, const char* md
 	strcpy(this->msgType, msgType);
 	qHandle = xQueueCreate(3, RX_QUEUE_MSG_SIZE);
 	connectionID = 0;
-	XMLRequest* req = new RegisterRequest("registerSubscriber", MASTER_URI, callerID, topic, msgType);
-	XMLRPCServer::sendRequest(req->getData(), 11311, connectPublishers, this);
+	XMLRequest* req = new RegisterRequest("registerSubscriber", ROS_MASTER_IP, callerID, topic, msgType);
+	XMLRPCServer::sendRequest(req->getData(), SERVER_PORT_NUM, connectPublishers, this);
 	// TODO: make a unique task name
-	xTaskCreate(task, (const signed char*)topic, 150, (void*)this, tskIDLE_PRIORITY + 2, NULL);
+    xTaskCreate(task, (const signed char*)topic, 250, (void*)this, tskIDLE_PRIORITY + 2, NULL);
 }
 
 void TopicReader::addCallback(void(*callback)(void* data, void* obj), void* obj)
@@ -69,16 +70,23 @@ void TopicReader::enqueueMessage(const char* msg)
 	// Initialize memory (in stack) for message.
 	unsigned char data[RX_QUEUE_MSG_SIZE];
 	// Copy message into the previously initialized memory.
-	memcpy(data, msg, RX_QUEUE_MSG_SIZE);
-	// Try to send message if queue is non-full.
-	// TODO: Check if we are still "connected" to the end point. (i.e. the node at the remote end is still running)
-	if (xQueueSend(qHandle, &data, 0))
-	{
+    if (msg != NULL)
+    {
+        memcpy(data, msg, RX_QUEUE_MSG_SIZE);
+        // Try to send message if queue is non-full.
+        // TODO: Check if we are still "connected" to the end point. (i.e. the node at the remote end is still running)
+        if (xQueueSend(qHandle, &data, 0))
+        {
 
-	}
-	/*	os_printf("Enqueueing data!\n");*/
-	else
-		os_printf("Queue is full!\n");
+        }
+        /*	os_printf("Enqueueing data!\n");*/
+        else
+            os_printf("Queue is full!\n");
+    }
+    else
+    {
+        os_printf("TopicReader::enqueueMessage msg is NULL\n");
+    }
 }
 void TopicReader::dequeueMessage(char* msg)
 {
@@ -90,7 +98,10 @@ void TopicReader::dequeueMessage(char* msg)
 	{
 		if (xQueueReceive(qHandle, data, RXTIMEOUT))
 		{
-			memcpy(msg, data, RX_QUEUE_MSG_SIZE);
+            if (msg != NULL)
+                memcpy(msg, data, RX_QUEUE_MSG_SIZE);
+            else
+                os_printf("TopicReader::dequeueMessage msg is NULL!\n");
 			break;
 		}
 	}
@@ -115,7 +126,7 @@ void TopicReader::onResponse(const void* obj,const char* data)
 
 void TopicReader::requestTopic(const char* ip, uint16_t serverPort)
 {
-	XMLRequest* req = new TopicRequest("requestTopic", MASTER_URI, callerID, topic, md5sum, msgType);
+	XMLRequest* req = new TopicRequest("requestTopic", ROS_MASTER_IP, callerID, topic, md5sum, msgType);
 	XMLRPCServer::sendRequest(req->getData(), serverPort, onResponse, this);
 }
 
@@ -143,10 +154,10 @@ void TopicReader::connectPublishers(const void* obj, const char* data)
 				os_printf("URI: %s:::%d\n", ip, port);
 				//os_printf("URI: %s\n", uri);
 				// Check if this uri already exists in a "PublisherURIs" list.
-				if (strcmp(ip, "10.3.84.99")) // TODO: replace this with a method to check if ip is not equal self ip
+				if (strcmp(ip, THIS_REMOTE_IP)) // TODO: replace this with a method to check if ip is not equal self ip
 				{
 					TopicReader* self = (TopicReader*) obj;
-					self->requestTopic(SERVER_IP_ADDRESS, port);
+					self->requestTopic(ROS_MASTER_IP, port);
 				}
 			}
 			pos = pos3;
