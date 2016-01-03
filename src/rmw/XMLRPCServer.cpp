@@ -296,7 +296,7 @@ void XMLRPCServer::UDPSend(void* params)
     pinMode(GPIO_PD11, OUTPUT);
     UDPMessage msg;
     struct ip_addr ip;
-    ip.addr = inet_addr("10.3.84.100");
+    ip.addr = inet_addr(ROS_MASTER_IP);
     for(;;)
     {
         //digitalWrite(GPIO_PD11, HIGH);
@@ -487,7 +487,7 @@ void XMLRPCServer::XMLRPCServerReceiveCallback(const char* data, char* buffer)
                         if (connection!= NULL)
                         {
                             os_printf("Connection ID: %d\n", connection->getID());
-                            XMLRequest* response = new TopicResponse(THIS_REMOTE_IP, UDP_LOCAL_PORT, connection->getID());
+                            XMLRequest* response = new TopicResponse(IP_ADDR, UDP_LOCAL_PORT, connection->getID());
                             strcpy(buffer, response->getData());
                         }
                     }
@@ -528,7 +528,7 @@ void XMLRPCServer::XMLRPCServerReceiveCallback(const char* data, char* buffer)
                         uint16_t port;
                         char ip[32];
                         extractURI(uri, ip, &port);
-                        if (strcmp(ip, THIS_REMOTE_IP))
+                        if (strcmp(ip, IP_ADDR))
                         {
                             os_printf("Topic:%s URI: %s:::%s:::%d\n", topic, uri, ip, port);
                             TopicReader* tr = getTopicReader(topic);
